@@ -1919,22 +1919,50 @@ function populateContratistaObraSelect(selId){
   const val=sel.value;
   sel.innerHTML='<option value="">— Sin asignar —</option>';
   Object.values(obras).filter(o=>(o.estado||'EN EJECUCIÓN')==='EN EJECUCIÓN').sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(o=>{
-    const contrs=getObraContratistas(o.id);
-    contrs.forEach(c=>{
-      const opt=document.createElement('option');
-      opt.value=o.id+'|'+c.id;
-      opt.textContent=(o.num?'Nº'+o.num+' – ':'')+o.nombre+' → '+c.nombre;
-      sel.appendChild(opt);
-    });
-    if(!contrs.length){
-      const opt=document.createElement('option');
-      opt.value=o.id+'|';
-      opt.textContent=(o.num?'Nº'+o.num+' – ':'')+o.nombre+' (sin contratista)';
-      sel.appendChild(opt);
-    }
+    const opt=document.createElement('option');
+    opt.value=o.id;
+    opt.textContent=(o.num?'Nº'+o.num+' – ':'')+o.nombre;
+    sel.appendChild(opt);
   });
   if(val) sel.value=val;
 }
+
+function _fillContratistaDropdown(obraId, selId){
+  const sel=gs(selId);
+  if(!sel) return;
+  sel.innerHTML='';
+  if(!obraId){
+    sel.innerHTML='<option value="">— Elegí una obra primero —</option>';
+    return;
+  }
+  const contrs=getObraContratistas(obraId);
+  if(!contrs.length){
+    sel.innerHTML='<option value="">— No hay contratistas en esta obra —</option>';
+    return;
+  }
+  if(contrs.length===1){
+    const c=contrs[0];
+    sel.innerHTML='<option value="'+c.id+'">'+c.nombre+'</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">— Seleccioná contratista —</option>';
+  contrs.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c.id;
+    opt.textContent=c.nombre;
+    sel.appendChild(opt);
+  });
+}
+
+window.populateContratistaSelect=function(){
+  const obraId=gs('ct-obra')?.value||'';
+  _fillContratistaDropdown(obraId,'ct-contratista');
+};
+
+window.populateEditContratistaSelect=function(){
+  const obraId=gs('ect-obra')?.value||'';
+  _fillContratistaDropdown(obraId,'ect-contratista');
+};
 
 function renderContratista(){
   migrateContratistaData();
@@ -2206,6 +2234,7 @@ window.updateContratistaMonto=async function(obraId,cId,val){
 
 window.clrContratistaForm=function(){
   gs('ct-fecha').value=today(); gs('ct-monto').value=''; gs('ct-concepto').value=''; gs('ct-obra').value='';
+  const cSel=gs('ct-contratista'); if(cSel) cSel.innerHTML='<option value="">— Elegí una obra primero —</option>';
 };
 window.toggleCtAccordion=function(id,headerEl){
   let _ctOpen={};
@@ -2219,10 +2248,12 @@ window.toggleCtAccordion=function(id,headerEl){
 window.saveContratistaPago=async function(){
   const monto=parseFloat(gs('ct-monto').value)||0;
   if(!monto){toast('Ingresá el monto','err');return}
-  const combo=gs('ct-obra').value||'';
-  const parts=combo.split('|');
-  const obraId=parts[0]||'';
-  const contratistaId=parts[1]||'';
+  const obraId=gs('ct-obra').value||'';
+  const contratistaId=gs('ct-contratista')?.value||'';
+  if(obraId&&!contratistaId){
+    const contrs=getObraContratistas(obraId);
+    if(contrs.length>1){toast('Seleccioná un contratista','err');return}
+  }
   if(obraId&&obras[obraId]?.estado==='FINALIZADA'){toast('🔒 Obra FINALIZADA — no se puede asignar gastos','err');return}
   const p={id:uid(),fecha:v('ct-fecha')||today(),monto,
     concepto:v('ct-concepto')||'Pago contratista',
@@ -2247,17 +2278,21 @@ window.editContratistaPago=function(id){
   gs('ect-monto').value=p.monto||0;
   gs('ect-concepto').value=p.concepto||'';
   populateContratistaObraSelect('ect-obra');
-  gs('ect-obra').value=(p.obraId||'')+'|'+(p.contratistaId||'');
+  gs('ect-obra').value=p.obraId||'';
+  _fillContratistaDropdown(p.obraId||'','ect-contratista');
+  if(p.contratistaId) gs('ect-contratista').value=p.contratistaId;
   openM('mEditContratista');
 };
 window.saveEditContratista=async function(){
   const id=gs('ect-id').value;
   const p=contratistaPagos.find(p=>p.id===id);
   if(!p){toast('No encontrado','err');return}
-  const combo=gs('ect-obra').value||'';
-  const parts=combo.split('|');
-  const newObraId=parts[0]||'';
-  const newContrId=parts[1]||'';
+  const newObraId=gs('ect-obra').value||'';
+  const newContrId=gs('ect-contratista')?.value||'';
+  if(newObraId&&!newContrId){
+    const contrs=getObraContratistas(newObraId);
+    if(contrs.length>1){toast('Seleccioná un contratista','err');return}
+  }
   if(newObraId&&obras[newObraId]?.estado==='FINALIZADA'){toast('🔒 No se puede asignar a obra FINALIZADA','err');return}
   p.fecha=gs('ect-fecha').value;
   p.monto=parseFloat(gs('ect-monto').value)||0;
