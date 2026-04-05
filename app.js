@@ -490,7 +490,7 @@ function renderObrasGrid(){
   g.innerHTML=list.map(o=>{
     const r=calcRes(o.id);
     return`<div class="obra-card ${o.id===cur?'act':''}" onclick="selectObra('${o.id}')">
-      <div class="oc-num">${o.num?'Nº'+o.num+' ·':''} ${o.estado||'EN EJECUCIÓN'}${o.estado==='FINALIZADA'?' 🔒':''}</div>
+      <div class="oc-num">${o.num?'<span style="font-size:1.1rem;font-weight:800;letter-spacing:.02em">Nº'+o.num+'</span> ·':''} ${o.estado||'EN EJECUCIÓN'}${o.estado==='FINALIZADA'?' 🔒':''}</div>
       <div class="oc-nombre">${o.nombre||'Sin nombre'}</div>
       <div class="oc-stats">
         ${isOp?'':`<span class="oc-stat">Contrato: ${fGs(calcCon(o.id))}</span>`}
@@ -621,7 +621,7 @@ function renderDash(){
     gs('dsh-strip').style.display='none'; return;
   }
   const o=obras[cur],r=calcRes(cur);
-  gs('dsh-title').textContent='Dashboard — '+(o.num?'Nº'+o.num+' – ':'')+o.nombre;
+  gs('dsh-title').innerHTML='Dashboard — '+(o.num?'<span style="font-size:1.2em;font-weight:800">Nº'+o.num+'</span> – ':'')+o.nombre;
   gs('dsh-sub').textContent='Al '+new Date().toLocaleDateString('es-PY');
   gs('dsh-strip').style.display='flex';
   gs('dsh-nombre').textContent=o.nombre; gs('dsh-fecha').textContent=o.fecha||'—';
@@ -691,7 +691,7 @@ function renderGlobal(){
 function renderGastosPage(){
   if(!cur){toast('Seleccioná una obra primero','err');navTo('obras');return}
   const o=obras[cur];
-  gs('gsub').textContent='Obra: '+(o.num?'Nº'+o.num+' – ':'')+o.nombre;
+  gs('gsub').innerHTML='Obra: '+(o.num?'<span style="font-size:1.2em;font-weight:800">Nº'+o.num+'</span> – ':'')+o.nombre;
   gs('gstrip').style.display='flex'; gs('gsn').textContent=o.nombre;
   updGStrip();
   if(qrows.length===0)addRow();
@@ -1024,7 +1024,7 @@ function renderCerts(){
 function renderResumen(){
   if(!cur){toast('Seleccioná una obra','err');navTo('obras');return}
   const o=obras[cur], r=calcRes(cur);
-  gs('resumen-sub').textContent=(o.num?'N\xba'+o.num+' \u2013 ':'')+o.nombre+' \u00b7 '+new Date().toLocaleDateString('es-PY');
+  gs('resumen-sub').innerHTML=(o.num?'<span style="font-size:1.2em;font-weight:800">N\xba'+o.num+'</span> \u2013 ':'')+o.nombre+' \u00b7 '+new Date().toLocaleDateString('es-PY');
   gs('rtbody').innerHTML=[
     ['MONTO CONTRATO',fGs(r.con),'y'],
     ['TOTAL DE GASTOS',fGs(r.tg),'r'],
