@@ -1228,7 +1228,7 @@ function renderGestor(){
     _salMap[o.id]={sal:ad-en, pct:ad>0?Math.min(100,en/ad*100):0, nPagos};
   });
   // Filtrar
-  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraHe(o.id)!==0);
+  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraHe(o.id)!==0||(o.gestorMonto!=null&&o.gestorMonto!==''));
   if(filterVal==='pendientes')    obraList=obraList.filter(o=>_salMap[o.id].sal>0.5);
   if(filterVal==='saldadas')      obraList=obraList.filter(o=>_salMap[o.id].sal<=0.5);
   if(filterVal==='con-entregas')  obraList=obraList.filter(o=>_salMap[o.id].nPagos>0);
