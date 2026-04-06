@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════
 // AUTH & ROLES
 // ═══════════════════════════════════════
+const ADMIN_USER = 'wuilian'; // ← único con control total
+
 let _currentUser=null, _currentRole='socio';
+
+function isAdmin(){ return _currentUser === ADMIN_USER; }
 
 async function hashPass(p){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p+'_thalamus2024'));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-// 🧂 Generar salt
 function generateSalt(len=16){
   const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let s='';
@@ -19,7 +22,6 @@ function generateSalt(len=16){
 function getUsers(){try{return JSON.parse(localStorage.getItem('th_users'))||{};}catch{return {};}}
 function saveUsersDB(u){localStorage.setItem('th_users',JSON.stringify(u));}
 
-// Seed default users if none exist
 (async function seedUsers(){
   const u=getUsers();
   if(Object.keys(u).length===0){
@@ -42,14 +44,12 @@ window.doLogin=async function(){
 
   const uData=users[user];
 
-  // 🔐 Validación compatible con usuarios viejos (sin salt) y nuevos (con salt)
   const computedHash=uData.salt
     ? await hashPass(pass+uData.salt)
     : await hashPass(pass);
 
   if(uData.hash!==computedHash){el('login-err').textContent='Contraseña incorrecta';return}
 
-  // 🔄 Migración automática silenciosa: si no tiene salt, lo agrega
   if(!uData.salt){
     const newSalt=generateSalt();
     uData.hash=await hashPass(pass+newSalt);
@@ -92,22 +92,41 @@ function renderUserList(){
   const list=document.getElementById('userList');
   if(!list)return;
   const users=getUsers();
+  const admin=isAdmin();
   let h='';
   for(const[name,data]of Object.entries(users)){
     const self=name===_currentUser;
+    const role=data.role||'socio';
     h+='<div class="user-row">';
     h+='<span class="u-name">'+(self?'<b>'+name+'</b> (vos)':name)+'</span>';
     h+='<span style="font-size:.64rem;color:var(--muted);font-family:\'JetBrains Mono\',monospace;">••••</span>';
-    h+='<span class="u-role '+(data.role||'socio')+'">'+(data.role==='operador'?'Operador':'Socio')+'</span>';
-    if(!self)h+=' <button class="btn-logout" style="margin-left:6px" onclick="adminDelUser(\''+name+'\')">✕</button>';
-    if(!self)h+=' <button class="btn-logout" style="margin-left:4px;border-color:var(--gold);color:var(--gold)" onclick="adminResetPass(\''+name+'\')">🔑</button>';
+    h+='<span class="u-role '+role+'">'+(role==='operador'?'Operador':'Socio')+'</span>';
+
+    // Solo el admin ve los controles sobre otros usuarios
+    if(admin && !self){
+      // Botón cambiar rol
+      const nextRole=role==='operador'?'socio':'operador';
+      const nextLabel=nextRole==='operador'?'→ Operador':'→ Socio';
+      h+=' <button class="btn-logout" style="margin-left:6px;border-color:var(--accent);color:var(--accent)" '
+        +'onclick="adminSetRole(\''+name+'\',\''+nextRole+'\')">'+nextLabel+'</button>';
+      // Botón cambiar contraseña
+      h+=' <button class="btn-logout" style="margin-left:4px;border-color:var(--gold);color:var(--gold)" '
+        +'onclick="adminResetPass(\''+name+'\')">🔑</button>';
+      // Botón eliminar
+      h+=' <button class="btn-logout" style="margin-left:4px" '
+        +'onclick="adminDelUser(\''+name+'\')">✕</button>';
+    }
+
     h+='</div>';
   }
   list.innerHTML=h;
   renderLoginHistory();
 }
 
+// ── Solo admin ──────────────────────────────
+
 window.adminAddUser=async function(){
+  if(!isAdmin()){toast('Solo el administrador puede crear usuarios','err');return}
   const name=document.getElementById('adm-user').value.trim().toLowerCase();
   const pass=document.getElementById('adm-pass').value;
   const role=document.getElementById('adm-role').value;
@@ -125,6 +144,7 @@ window.adminAddUser=async function(){
 };
 
 window.adminDelUser=function(name){
+  if(!isAdmin()){toast('Sin permisos','err');return}
   requireAuth('⚠️ Eliminar usuario "'+name+'".',()=>{
     const users=getUsers();delete users[name];saveUsersDB(users);
     renderUserList();toast('Usuario eliminado','ok');
@@ -132,6 +152,7 @@ window.adminDelUser=function(name){
 };
 
 window.adminResetPass=async function(name){
+  if(!isAdmin()){toast('Solo el administrador puede cambiar contraseñas','err');return}
   const np=prompt('Nueva contraseña para "'+name+'" (mínimo 4):');
   if(!np||np.length<4){toast('Contraseña muy corta','err');return}
   const users=getUsers();
@@ -142,7 +163,18 @@ window.adminResetPass=async function(name){
   toast('Contraseña de "'+name+'" actualizada ✓','ok');
 };
 
-// Auto-login from session
+window.adminSetRole=function(name, newRole){
+  if(!isAdmin()){toast('Sin permisos','err');return}
+  const users=getUsers();
+  if(!users[name]){toast('Usuario no encontrado','err');return}
+  users[name].role=newRole;
+  saveUsersDB(users);
+  renderUserList();
+  toast('"'+name+'" ahora es '+newRole+' ✓','ok');
+};
+
+// ── Sesión ──────────────────────────────────
+
 (function trySession(){
   try{
     const s=JSON.parse(sessionStorage.getItem('th_session'));
@@ -160,7 +192,6 @@ window.adminResetPass=async function(name){
   }catch{}
 })();
 
-// Enter key on login
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     const a=document.activeElement;
@@ -168,7 +199,8 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// ── Login tracking ──
+// ── Login tracking ──────────────────────────
+
 async function trackLogin(user){
   try{
     const log=await fbGetDoc('logins/history')||{};
