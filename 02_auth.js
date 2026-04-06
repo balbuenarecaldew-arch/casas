@@ -7,6 +7,15 @@ async function hashPass(p){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p+'_thalamus2024'));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
+
+// 🧂 Generar salt
+function generateSalt(len=16){
+  const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let s='';
+  for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
 function getUsers(){try{return JSON.parse(localStorage.getItem('th_users'))||{};}catch{return {};}}
 function saveUsersDB(u){localStorage.setItem('th_users',JSON.stringify(u));}
 
@@ -14,8 +23,9 @@ function saveUsersDB(u){localStorage.setItem('th_users',JSON.stringify(u));}
 (async function seedUsers(){
   const u=getUsers();
   if(Object.keys(u).length===0){
-    u['fernando']={hash:await hashPass('fernando'),role:'socio',pass:'fernando'};
-    u['wuilian']={hash:await hashPass('wuilian'),role:'socio',pass:'wuilian'};
+    const saltF=generateSalt(), saltW=generateSalt();
+    u['fernando']={hash:await hashPass('fernando'+saltF),salt:saltF,role:'socio'};
+    u['wuilian']={hash:await hashPass('wuilian'+saltW),salt:saltW,role:'socio'};
     saveUsersDB(u);
   }
 })();
@@ -24,11 +34,31 @@ window.doLogin=async function(){
   const el=id=>document.getElementById(id);
   const user=el('login-user').value.trim().toLowerCase();
   const pass=el('login-pass').value;
+
   if(!user||!pass){el('login-err').textContent='Completá usuario y contraseña';return}
+
   const users=getUsers();
   if(!users[user]){el('login-err').textContent='Usuario no encontrado';return}
-  if(users[user].hash!==await hashPass(pass)){el('login-err').textContent='Contraseña incorrecta';return}
-  _currentUser=user; _currentRole=users[user].role||'socio';
+
+  const uData=users[user];
+
+  // 🔐 Validación compatible con usuarios viejos (sin salt) y nuevos (con salt)
+  const computedHash=uData.salt
+    ? await hashPass(pass+uData.salt)
+    : await hashPass(pass);
+
+  if(uData.hash!==computedHash){el('login-err').textContent='Contraseña incorrecta';return}
+
+  // 🔄 Migración automática silenciosa: si no tiene salt, lo agrega
+  if(!uData.salt){
+    const newSalt=generateSalt();
+    uData.hash=await hashPass(pass+newSalt);
+    uData.salt=newSalt;
+    users[user]=uData;
+    saveUsersDB(users);
+  }
+
+  _currentUser=user; _currentRole=uData.role||'socio';
   sessionStorage.setItem('th_session',JSON.stringify({user,role:_currentRole}));
   el('loginOverlay').classList.add('hidden');
   applyRole();
@@ -43,22 +73,18 @@ window.doLogout=function(){
 
 function applyRole(){
   const el=id=>document.getElementById(id);
-  // Update topbar
   el('topAvatar').textContent=_currentUser?_currentUser.charAt(0).toUpperCase():'?';
   el('topUser').textContent=_currentUser||'';
 
-  // Show/hide elements based on role
   const isOp=_currentRole==='operador';
   document.querySelectorAll('.socio-only').forEach(e=>{
     if(isOp) e.classList.add('role-restricted');
     else e.classList.remove('role-restricted');
   });
 
-  // For "Nueva obra" button: operador can't create new obras
   const newBtn=document.querySelector('.btn-new');
   if(newBtn){if(isOp)newBtn.classList.add('role-restricted');else newBtn.classList.remove('role-restricted');}
 
-  // User admin panel
   renderUserList();
 }
 
@@ -69,10 +95,9 @@ function renderUserList(){
   let h='';
   for(const[name,data]of Object.entries(users)){
     const self=name===_currentUser;
-    const pw=data.pass||'••••';
     h+='<div class="user-row">';
     h+='<span class="u-name">'+(self?'<b>'+name+'</b> (vos)':name)+'</span>';
-    h+='<span style="font-size:.64rem;color:var(--muted);font-family:\'JetBrains Mono\',monospace;cursor:pointer" title="Click para ver/ocultar" onclick="this.textContent=this.textContent===\'••••\'?\''+pw+'\':\'••••\'">'+'••••'+'</span>';
+    h+='<span style="font-size:.64rem;color:var(--muted);font-family:\'JetBrains Mono\',monospace;">••••</span>';
     h+='<span class="u-role '+(data.role||'socio')+'">'+(data.role==='operador'?'Operador':'Socio')+'</span>';
     if(!self)h+=' <button class="btn-logout" style="margin-left:6px" onclick="adminDelUser(\''+name+'\')">✕</button>';
     if(!self)h+=' <button class="btn-logout" style="margin-left:4px;border-color:var(--gold);color:var(--gold)" onclick="adminResetPass(\''+name+'\')">🔑</button>';
@@ -91,7 +116,8 @@ window.adminAddUser=async function(){
   if(pass.length<4){toast('Contraseña: mínimo 4 caracteres','err');return}
   const users=getUsers();
   if(users[name]){toast('Ese usuario ya existe','err');return}
-  users[name]={hash:await hashPass(pass),role,pass};
+  const salt=generateSalt();
+  users[name]={hash:await hashPass(pass+salt),salt,role};
   saveUsersDB(users);
   document.getElementById('adm-user').value='';document.getElementById('adm-pass').value='';
   renderUserList();
@@ -108,7 +134,11 @@ window.adminDelUser=function(name){
 window.adminResetPass=async function(name){
   const np=prompt('Nueva contraseña para "'+name+'" (mínimo 4):');
   if(!np||np.length<4){toast('Contraseña muy corta','err');return}
-  const users=getUsers();users[name].hash=await hashPass(np);users[name].pass=np;saveUsersDB(users);
+  const users=getUsers();
+  const salt=generateSalt();
+  users[name].hash=await hashPass(np+salt);
+  users[name].salt=salt;
+  saveUsersDB(users);
   toast('Contraseña de "'+name+'" actualizada ✓','ok');
 };
 
@@ -147,7 +177,6 @@ async function trackLogin(user){
     if(log[user].length>10)log[user]=log[user].slice(0,10);
     await fbSet('logins/history',log);
   }catch(e){
-    // Fallback localStorage
     const log=JSON.parse(localStorage.getItem('th_logins')||'{}');
     if(!log[user])log[user]=[];
     log[user].unshift({time:Date.now(),date:new Date().toLocaleString('es-PY')});
@@ -194,4 +223,3 @@ function timeAgo(ts){
   if(days===1)return'Ayer';
   return'Hace '+days+' días';
 }
-
