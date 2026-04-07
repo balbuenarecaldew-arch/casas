@@ -918,3 +918,8 @@ tbody tr:hover td { background:rgba(0,229,255,.03); color:var(--txt); }
   .card  { padding:.85rem; }
   .topbar { padding:0 .9rem; height:54px; }
 }
+@media (max-width:420px) {
+  .metrics { grid-template-columns:1fr 1fr !important; }
+  .m-val { font-size:.82rem; }
+  .obra-sel { max-width:120px; }
+}
