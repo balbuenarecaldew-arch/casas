@@ -1,4 +1,54 @@
 // ═══════════════════════════════════════
+// THEME SWITCHER
+// ═══════════════════════════════════════
+window.switchTheme=function(css){
+  const oldLink=document.getElementById('themeCSS');
+  if(!oldLink) return;
+  // Create new link and load it BEFORE removing old one
+  const newLink=document.createElement('link');
+  newLink.rel='stylesheet'; newLink.href=css; newLink.id='themeCSS_new';
+  newLink.onload=function(){
+    // New CSS loaded successfully — swap
+    oldLink.remove();
+    newLink.id='themeCSS';
+    localStorage.setItem('th_theme',css);
+  };
+  newLink.onerror=function(){
+    // Failed — remove the broken link, keep old
+    newLink.remove();
+    const sel=document.getElementById('themeSelect');
+    if(sel) sel.value=oldLink.href.split('/').pop();
+    toast('No se pudo cargar "'+css+'" — verificá que el archivo existe en tu repo','err');
+  };
+  document.head.appendChild(newLink);
+};
+(function loadSavedTheme(){
+  const saved=localStorage.getItem('th_theme');
+  if(!saved) return;
+  const link=document.getElementById('themeCSS');
+  if(!link) return;
+  const current=link.href.split('/').pop();
+  if(current===saved) return;
+  // Safe load: add new link, only swap on success
+  const newLink=document.createElement('link');
+  newLink.rel='stylesheet'; newLink.href=saved; newLink.id='themeCSS_init';
+  newLink.onload=function(){
+    link.remove();
+    newLink.id='themeCSS';
+  };
+  newLink.onerror=function(){
+    // Saved theme can't load — clear preference, keep default
+    newLink.remove();
+    localStorage.removeItem('th_theme');
+  };
+  document.head.appendChild(newLink);
+  document.addEventListener('DOMContentLoaded',()=>{
+    const sel=document.getElementById('themeSelect');
+    if(sel) sel.value=document.getElementById('themeCSS')?.href?.split('/').pop()||'oscuro.css';
+  });
+})();
+
+// ═══════════════════════════════════════
 // AUTH & ROLES
 // ═══════════════════════════════════════
 let _currentUser=null, _currentRole='socio';
@@ -487,10 +537,10 @@ function renderObrasGrid(){
   if(key==='num') list.sort((a,b)=>asc*((parseInt(a.num)||999)-(parseInt(b.num)||999)));
   else if(key==='fecha') list.sort((a,b)=>asc*((a.lastModified||0)-(b.lastModified||0)));
   else list.sort((a,b)=>asc*(a.nombre||'').localeCompare(b.nombre||''));
-  g.innerHTML=list.map(o=>{
+  g.innerHTML=list.map((o,idx)=>{
     const r=calcRes(o.id);
     return`<div class="obra-card ${o.id===cur?'act':''}" onclick="selectObra('${o.id}')">
-      <div class="oc-num">${o.num?'<span style="font-size:1.1rem;font-weight:800;letter-spacing:.02em">Nº'+o.num+'</span> ·':''} ${o.estado||'EN EJECUCIÓN'}${o.estado==='FINALIZADA'?' 🔒':''}</div>
+      <div class="oc-num"><span style="font-size:.62rem;color:var(--muted);margin-right:4px">${idx+1}.</span>${o.num?'<span style="font-size:1.1rem;font-weight:800;letter-spacing:.02em">Nº'+o.num+'</span> ·':''} ${o.estado||'EN EJECUCIÓN'}${o.estado==='FINALIZADA'?' 🔒':''}</div>
       <div class="oc-nombre">${o.nombre||'Sin nombre'}</div>
       <div class="oc-stats">
         ${isOp?'':`<span class="oc-stat">Contrato: ${fGs(calcCon(o.id))}</span>`}
@@ -809,16 +859,19 @@ function renderGSaved(){
   }
   // ── CONTRATISTA ROWS ──
   if(ctPagos.length){
-    html+=ctPagos.map((p,i)=>`<tr style="background:rgba(157,127,218,.04) !important">
+    html+=ctPagos.map((p,i)=>{
+      const cName=p.contratistaId&&obras[cur]?.contratistas?
+        (obras[cur].contratistas.find(c=>c.id===p.contratistaId)?.nombre||''):'';
+      return`<tr style="background:rgba(157,127,218,.04) !important">
       <td style="color:var(--purple);font-size:.68rem;text-align:center;font-weight:600"><span class="tag tag-p" style="font-size:.5rem">CONTRAT.</span></td>
       <td>${p.fecha||'—'}</td>
-      <td style="font-family:'Syne',sans-serif;color:var(--purple);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.concepto||'Pago Contratista'}">👔 ${p.concepto||'Pago Contratista'}</td>
+      <td style="font-family:'Syne',sans-serif;color:var(--purple);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.concepto||'Pago Contratista'}${cName?' ('+cName+')':''}">👔 ${p.concepto||'Pago Contratista'}${cName?' <span style="font-size:.6rem;opacity:.7">('+cName+')</span>':''}</td>
       <td style="color:var(--purple)">${fGs(p.monto)}</td><td>—</td>
       <td>—</td><td>—</td><td>—</td>
       <td style="color:var(--purple);font-weight:600">${fGs(p.monto)}</td>
       <td><span class="tag tag-p" style="font-size:.5rem">CONTRAT.</span></td>
       <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="navTo('contratista')" title="Ver en Contratista">👔</button></td>
-    </tr>`).join('');
+    </tr>`}).join('');
   }
   if(!list.length&&!gPagos.length&&!aPagos.length&&!ctPagos.length){
     tbody.innerHTML='<tr class="empty-row"><td colspan="11">Sin gastos registrados aún</td></tr>';
@@ -1055,7 +1108,11 @@ function renderResumen(){
       resModHtml+=gPagosRes.map(p=>`<tr class="gestor-row-in-gastos"><td>${p.fecha||'\u2014'}</td><td style="font-family:'Syne',sans-serif;color:var(--amber);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👷 ${p.concepto||'Entrega al Gestor'}</td><td style="color:var(--amber)">${fGs(p.monto)}</td><td>—</td><td>—</td><td style="color:var(--amber)">${fGs(p.monto)}</td></tr>`).join('');
     }
     if(ctPagosRes.length){
-      resModHtml+=ctPagosRes.map(p=>`<tr style="background:rgba(157,127,218,.04)"><td>${p.fecha||'\u2014'}</td><td style="font-family:'Syne',sans-serif;color:var(--purple);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👔 ${p.concepto||'Pago Contratista'}</td><td style="color:var(--purple)">${fGs(p.monto)}</td><td>—</td><td>—</td><td style="color:var(--purple)">${fGs(p.monto)}</td></tr>`).join('');
+      resModHtml+=ctPagosRes.map(p=>{
+        const cName=p.contratistaId&&obras[cur]?.contratistas?
+          (obras[cur].contratistas.find(c=>c.id===p.contratistaId)?.nombre||''):'';
+        return`<tr style="background:rgba(157,127,218,.04)"><td>${p.fecha||'\u2014'}</td><td style="font-family:'Syne',sans-serif;color:var(--purple);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👔 ${p.concepto||'Pago Contratista'}${cName?' <span style="font-size:.6rem;opacity:.7">('+cName+')</span>':''}</td><td style="color:var(--purple)">${fGs(p.monto)}</td><td>—</td><td>—</td><td style="color:var(--purple)">${fGs(p.monto)}</td></tr>`;
+      }).join('');
     }
     const regHtml=gl.length
       ? gl.map(g=>`<tr><td>${g.fecha||'\u2014'}</td><td style="font-family:'Syne',sans-serif;color:var(--txt);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.concepto}</td><td>${fGs(g.monto)}</td><td>${fGs(g.montoCheque)}</td><td>${fGs(g.devuelto)}</td><td style="color:var(--gold)">${fGs(g.costoTotal)}</td></tr>`).join('')
@@ -1173,13 +1230,30 @@ window.delRetiro=function(socio,idx){
 // ═══════════════════════════════════════
 // GESTOR — CONTROL DE PAGOS
 // ═══════════════════════════════════════
+function obraParticipaGestor(id){
+  const o=obras[id]; if(!o) return false;
+  if(o.gestorMonto!=null&&o.gestorMonto!==''){
+    const m=parseFloat(o.gestorMonto); if(!isNaN(m)&&m>0) return true;
+  }
+  if(o.heri!=null&&calcCon(id)*(parseFloat(o.heri)/100)>0) return true;
+  if(gestorPagos.some(p=>p.obraId===id)) return true;
+  return false;
+}
 function calcGestorAdeudadoObra(id){
   const o=obras[id];
   if(o&&o.gestorMonto!=null&&o.gestorMonto!==''){
     const manual=parseFloat(o.gestorMonto);
     if(!isNaN(manual)) return manual;
   }
-  return calcCon(id)*(obraGes(id)/100);
+  // Explicit heri set with non-zero result
+  if(o?.heri!=null){
+    const amt=calcCon(id)*(parseFloat(o.heri)/100);
+    if(amt>0) return amt;
+  }
+  // If obra has payments but no explicit amount, corresponde = entregado (money was already paid)
+  const entregado=calcGestorEntregadoObra(id);
+  if(entregado>0) return entregado;
+  return 0;
 }
 function calcGestorAdeudado(){
   return Object.values(obras).reduce((s,o)=>s+calcGestorAdeudadoObra(o.id),0);
@@ -1230,7 +1304,7 @@ function renderGestor(){
     _salMap[o.id]={sal:ad-en, pct:ad>0?Math.min(100,en/ad*100):0, nPagos};
   });
   // Filtrar
-  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraHe(o.id)!==0||(o.gestorMonto!=null&&o.gestorMonto!==''));
+  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraParticipaGestor(o.id));
   if(filterVal==='pendientes')    obraList=obraList.filter(o=>_salMap[o.id].sal>0.5);
   if(filterVal==='saldadas')      obraList=obraList.filter(o=>_salMap[o.id].sal<=0.5);
   if(filterVal==='con-entregas')  obraList=obraList.filter(o=>_salMap[o.id].nPagos>0);
@@ -1250,6 +1324,22 @@ function renderGestor(){
     const sinAsignar=calcGestorSinAsignar();
     let html=obraList.map(o=>{
       const con=calcCon(o.id);
+      const participa=obraParticipaGestor(o.id);
+      if(!participa){
+        return`<div class="gestor-obra-card" style="opacity:.6;border-style:dashed">
+          <div class="gestor-obra-card-header">
+            <div class="gestor-obra-card-title" style="flex:1;min-width:0">
+              <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
+              <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
+              <span style="font-size:.6rem;color:var(--muted);font-style:italic">No incluida</span>
+              <button class="btn btn-xs" style="background:rgba(232,160,68,.15);color:var(--amber);border:1px solid rgba(232,160,68,.2);padding:3px 10px;font-size:.62rem;font-weight:600"
+                onclick="event.stopPropagation();activarObraGestor('${o.id}')">+ Incluir</button>
+            </div>
+          </div>
+        </div>`;
+      }
       const gesPct=obraGes(o.id);
       const autoCalc=con*(gesPct/100);
       const hasOverride=o.gestorMonto!=null&&o.gestorMonto!=='';
@@ -1513,15 +1603,24 @@ window.quickAddGestorObra=async function(obraId){
 window.limpiarGestorObra=function(obraId){
   const o=obras[obraId]; if(!o)return;
   const pagosAsignados=gestorPagos.filter(p=>p.obraId===obraId);
-  const msg='¿Limpiar datos del gestor para "'+o.nombre+'"?\n'
+  const msg='¿Quitar "'+o.nombre+'" del gestor?\n'
     +(pagosAsignados.length?'— Se eliminarán '+pagosAsignados.length+' entrega(s)\n':'')
-    +'— Se reseteará el monto manual (si existe)';
+    +'— Se quitará el % y monto asignado';
   requireAuth(msg,async()=>{
     gestorPagos=gestorPagos.filter(p=>p.obraId!==obraId);
     await fbSet('gestor/pagos',{lista:gestorPagos});
-    if(o.gestorMonto!=null){delete o.gestorMonto; await fbSet('obras/'+obraId,o);}
-    saveCache(); renderGestor(); toast('Datos del gestor limpiados para "'+o.nombre+'" ✓','ok');
+    if(o.gestorMonto!=null) delete o.gestorMonto;
+    if(o.heri!=null) delete o.heri;
+    await fbSet('obras/'+obraId,o);
+    saveCache(); renderGestor(); toast('"'+o.nombre+'" quitada del gestor ✓','ok');
   });
+};
+window.activarObraGestor=async function(obraId){
+  const o=obras[obraId]; if(!o)return;
+  o.heri=cfg.heri;
+  await fbSet('obras/'+obraId,o);
+  saveCache(); renderGestor();
+  toast('"'+o.nombre+'" incluida en gestor ('+cfg.heri+'%) ✓','ok');
 };
 
 window.resetTodosGestorAuto=function(){
@@ -1545,13 +1644,28 @@ window.borrarTodosGestor=function(){
 // ═══════════════════════════════════════
 // AYUDA SOCIAL MODULE
 // ═══════════════════════════════════════
+function obraParticipaAyuda(id){
+  const o=obras[id]; if(!o) return false;
+  if(o.ayudaMonto!=null&&o.ayudaMonto!==''){
+    const m=parseFloat(o.ayudaMonto); if(!isNaN(m)&&m>0) return true;
+  }
+  if(o.ayuda!=null&&calcCon(id)*(parseFloat(o.ayuda)/100)>0) return true;
+  if(ayudaSocialPagos.some(p=>p.obraId===id)) return true;
+  return false;
+}
 function calcAyudaAdeudadoObra(id){
   const o=obras[id];
   if(o&&o.ayudaMonto!=null&&o.ayudaMonto!==''){
     const manual=parseFloat(o.ayudaMonto);
     if(!isNaN(manual)) return manual;
   }
-  return calcCon(id)*(obraAy(id)/100);
+  if(o?.ayuda!=null){
+    const amt=calcCon(id)*(parseFloat(o.ayuda)/100);
+    if(amt>0) return amt;
+  }
+  const entregado=calcAyudaEntregadoObra(id);
+  if(entregado>0) return entregado;
+  return 0;
 }
 function calcAyudaAdeudado(){
   return Object.values(obras).reduce((s,o)=>s+calcAyudaAdeudadoObra(o.id),0);
@@ -1600,7 +1714,7 @@ function renderAyudaSocial(){
     const nPagos=ayudaSocialPagos.filter(p=>p.obraId===o.id).length;
     _salMap[o.id]={sal:ad-en, pct:ad>0?Math.min(100,en/ad*100):0, nPagos};
   });
-  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraAy(o.id)!==0||(o.ayudaMonto!=null&&o.ayudaMonto!==''));
+  if(filterVal==='actuales')      obraList=obraList.filter(o=>obraParticipaAyuda(o.id));
   if(filterVal==='pendientes')    obraList=obraList.filter(o=>_salMap[o.id].sal>0.5);
   if(filterVal==='saldadas')      obraList=obraList.filter(o=>_salMap[o.id].sal<=0.5);
   if(filterVal==='con-entregas')  obraList=obraList.filter(o=>_salMap[o.id].nPagos>0);
@@ -1620,6 +1734,22 @@ function renderAyudaSocial(){
     const sinAsignar=calcAyudaSinAsignar();
     let html=obraList.map(o=>{
       const con=calcCon(o.id);
+      const participa=obraParticipaAyuda(o.id);
+      if(!participa){
+        return`<div class="gestor-obra-card" style="opacity:.6;border-style:dashed">
+          <div class="gestor-obra-card-header">
+            <div class="gestor-obra-card-title" style="flex:1;min-width:0">
+              <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
+              <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
+              <span style="font-size:.6rem;color:var(--muted);font-style:italic">No incluida</span>
+              <button class="btn btn-xs" style="background:rgba(61,212,154,.15);color:var(--green);border:1px solid rgba(61,212,154,.2);padding:3px 10px;font-size:.62rem;font-weight:600"
+                onclick="event.stopPropagation();activarObraAyuda('${o.id}')">+ Incluir</button>
+            </div>
+          </div>
+        </div>`;
+      }
       const ayPct=obraAy(o.id);
       const autoCalc=con*(ayPct/100);
       const hasOverride=o.ayudaMonto!=null&&o.ayudaMonto!=='';
@@ -1850,15 +1980,24 @@ window.quickAddAyudaObra=async function(obraId){
 window.limpiarAyudaObra=function(obraId){
   const o=obras[obraId]; if(!o)return;
   const pagosAsignados=ayudaSocialPagos.filter(p=>p.obraId===obraId);
-  const msg='¿Limpiar datos de Ayuda Social para "'+o.nombre+'"?\n'
+  const msg='¿Quitar "'+o.nombre+'" de Ayuda Social?\n'
     +(pagosAsignados.length?'— Se eliminarán '+pagosAsignados.length+' entrega(s)\n':'')
-    +'— Se reseteará el monto manual (si existe)';
+    +'— Se quitará el % y monto asignado';
   requireAuth(msg,async()=>{
     ayudaSocialPagos=ayudaSocialPagos.filter(p=>p.obraId!==obraId);
     await fbSet('ayudaSocial/pagos',{lista:ayudaSocialPagos});
-    if(o.ayudaMonto!=null){delete o.ayudaMonto; await fbSet('obras/'+obraId,o);}
-    saveCache(); renderAyudaSocial(); toast('Datos de Ayuda Social limpiados para "'+o.nombre+'" ✓','ok');
+    if(o.ayudaMonto!=null) delete o.ayudaMonto;
+    if(o.ayuda!=null) delete o.ayuda;
+    await fbSet('obras/'+obraId,o);
+    saveCache(); renderAyudaSocial(); toast('"'+o.nombre+'" quitada de Ayuda Social ✓','ok');
   });
+};
+window.activarObraAyuda=async function(obraId){
+  const o=obras[obraId]; if(!o)return;
+  o.ayuda=cfg.ayuda;
+  await fbSet('obras/'+obraId,o);
+  saveCache(); renderAyudaSocial();
+  toast('"'+o.nombre+'" incluida en Ayuda Social ('+cfg.ayuda+'%) ✓','ok');
 };
 window.resetTodosAyudaAuto=function(){
   const conOverride=Object.values(obras).filter(o=>o.ayudaMonto!=null&&o.ayudaMonto!=="");
@@ -3790,7 +3929,7 @@ function _buildGestorPDF(){
   y=doc.lastAutoTable.finalY+6;
 
   // Tabla por obra
-  const obraList=Object.values(obras).filter(o=>obraHe(o.id)!==0||(o.gestorMonto!=null&&o.gestorMonto!=='')).sort((a,b)=>(parseInt(a.num)||0)-(parseInt(b.num)||0));
+  const obraList=Object.values(obras).filter(o=>obraParticipaGestor(o.id)).sort((a,b)=>(parseInt(a.num)||0)-(parseInt(b.num)||0));
   const body=obraList.map(o=>{
     const ad=calcGestorAdeudadoObra(o.id);
     const en=calcGestorEntregadoObra(o.id);
@@ -3878,7 +4017,7 @@ function _buildAyudaPDF(){
   });
   y=doc.lastAutoTable.finalY+6;
 
-  const obraList=Object.values(obras).filter(o=>obraAy(o.id)!==0||(o.ayudaMonto!=null&&o.ayudaMonto!=='')).sort((a,b)=>(parseInt(a.num)||0)-(parseInt(b.num)||0));
+  const obraList=Object.values(obras).filter(o=>obraParticipaAyuda(o.id)).sort((a,b)=>(parseInt(a.num)||0)-(parseInt(b.num)||0));
   const body=obraList.map(o=>{
     const ad=calcAyudaAdeudadoObra(o.id);
     const en=calcAyudaEntregadoObra(o.id);

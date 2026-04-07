@@ -3,15 +3,17 @@
 // ═══════════════════════════════════════
 function obraParticipaGestor(id){
   const o=obras[id]; if(!o) return false;
+  if(o.gestorExcluida) return false;
   if(o.gestorMonto!=null&&o.gestorMonto!==''){
     const m=parseFloat(o.gestorMonto); if(!isNaN(m)&&m>0) return true;
   }
-  if(o.heri!=null&&parseFloat(o.heri)>0) return true;
+  if(o.heri!=null&&calcCon(id)*(parseFloat(o.heri)/100)>0) return true;
   if(gestorPagos.some(p=>p.obraId===id)) return true;
   return false;
 }
 function calcGestorAdeudadoObra(id){
   const o=obras[id];
+  if(o?.gestorExcluida) return 0;
   if(o&&o.gestorMonto!=null&&o.gestorMonto!==''){
     const manual=parseFloat(o.gestorMonto);
     if(!isNaN(manual)) return manual;
@@ -28,7 +30,9 @@ function calcGestorAdeudado(){
   return Object.values(obras).reduce((s,o)=>s+calcGestorAdeudadoObra(o.id),0);
 }
 function calcGestorEntregado(){
-  return gestorPagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+  return gestorPagos
+    .filter(p=>!p.obraId||!obras[p.obraId]?.gestorExcluida)
+    .reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
 }
 function calcGestorEntregadoObra(id){
   return gestorPagos.filter(p=>p.obraId===id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
@@ -90,17 +94,18 @@ function renderGestor(){
     const totalObras=Object.keys(obras).length;
     const sinAsignar=calcGestorSinAsignar();
     let html=obraList.map(o=>{
-      const neto=calcNetoObra(o.id);
+      const con=calcCon(o.id);
       const participa=obraParticipaGestor(o.id);
       if(!participa){
+        const excluida=o.gestorExcluida===true;
         return`<div class="gestor-obra-card" style="opacity:.6;border-style:dashed">
-          <div class="gestor-obra-card-header">
-            <div class="gestor-obra-card-title" style="flex:1;min-width:0">
+          <div class="gestor-obra-card-header" style="flex-direction:column;align-items:flex-start;gap:.3rem">
+            <div class="gestor-obra-card-title" style="width:100%">
               <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
               <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
-              <span style="font-size:.6rem;color:var(--muted);font-style:italic">No incluida</span>
+            <div style="display:flex;gap:.35rem;align-items:center">
+              <span style="font-size:.6rem;color:var(--muted);font-style:italic">${excluida?'Excluida':'No incluida'}</span>
               <button class="btn btn-xs" style="background:rgba(232,160,68,.15);color:var(--amber);border:1px solid rgba(232,160,68,.2);padding:3px 10px;font-size:.62rem;font-weight:600"
                 onclick="event.stopPropagation();activarObraGestor('${o.id}')">+ Incluir</button>
             </div>
@@ -108,6 +113,7 @@ function renderGestor(){
         </div>`;
       }
       const gesPct=obraGes(o.id);
+      const neto=calcNetoObra(o.id);
       const autoCalc=neto*(gesPct/100);
       const hasOverride=o.gestorMonto!=null&&o.gestorMonto!=='';
       const adeObra=calcGestorAdeudadoObra(o.id);
@@ -138,14 +144,15 @@ function renderGestor(){
         title="${hasOverride?'Volver al cálculo automático':'Ya en automático: '+gesPct+'% de neto cobrado'}"
         style="${hasOverride?'':'opacity:.35;cursor:default;pointer-events:none'}">↺ Auto (${gesPct}%)</button>`;
       return`<div class="gestor-obra-card">
-        <div class="gestor-obra-card-header">
-          <div class="gestor-obra-card-title" style="flex:1;min-width:0">
+        <div class="gestor-obra-card-header" style="flex-direction:column;align-items:flex-start;gap:.3rem">
+          <div class="gestor-obra-card-title" style="width:100%">
             <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
             <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
-            <button class="btn btn-ghost btn-xs" style="padding:2px 7px;font-size:.58rem;flex-shrink:0" onclick="event.stopPropagation();editObra('${o.id}')" title="Editar obra">✏️</button>
-            <button class="btn btn-danger btn-xs" style="padding:2px 7px;font-size:.58rem;flex-shrink:0" onclick="event.stopPropagation();limpiarGestorObra('${o.id}')" title="Limpiar datos del gestor para esta obra">🧹</button>
+          <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-xs" style="padding:2px 10px;font-size:.6rem" onclick="event.stopPropagation();editObra('${o.id}')" title="Editar obra">✏️ Editar</button>
+            <button class="btn btn-xs" style="padding:2px 10px;font-size:.6rem;background:rgba(224,82,82,.12);color:var(--acc3);border:1px solid rgba(224,82,82,.2)" onclick="event.stopPropagation();excluirObraGestor('${o.id}')" title="Excluir del total (conserva datos)">⊘ Excluir</button>
+            <button class="btn btn-danger btn-xs" style="padding:2px 10px;font-size:.6rem" onclick="event.stopPropagation();limpiarGestorObra('${o.id}')" title="Limpiar datos">🧹 Limpiar</button>
           </div>
         </div>
         <div class="gestor-obra-card-body">
@@ -224,6 +231,7 @@ function renderGestor(){
     gs('gestorObraGrid').innerHTML=msg;
   }
 
+  // ── Historial de entregas ──
   const list=[...gestorPagos].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const hcnt=gs('ges-hist-count');
   if(hcnt) hcnt.textContent=list.length?'('+list.length+')':'';
@@ -307,6 +315,8 @@ window.saveEditGestor=async function(){
 };
 
 window.asignarGestorObra=function(id){
+  const p=gestorPagos.find(p=>p.id===id);
+  if(!p){toast('No encontrado','err');return}
   window.editGestorPago(id);
 };
 
@@ -368,12 +378,23 @@ window.limpiarGestorObra=function(obraId){
     await fbSet('gestor/pagos',{lista:gestorPagos});
     if(o.gestorMonto!=null) delete o.gestorMonto;
     if(o.heri!=null) delete o.heri;
+    if(o.gestorExcluida!=null) delete o.gestorExcluida;
     await fbSet('obras/'+obraId,o);
     saveCache(); renderGestor(); toast('"'+o.nombre+'" quitada del gestor ✓','ok');
   });
 };
+
+window.excluirObraGestor=async function(obraId){
+  const o=obras[obraId]; if(!o)return;
+  o.gestorExcluida=true;
+  await fbSet('obras/'+obraId,o);
+  saveCache(); renderGestor();
+  toast('"'+o.nombre+'" excluida del total (datos conservados) ✓','ok');
+};
+
 window.activarObraGestor=async function(obraId){
   const o=obras[obraId]; if(!o)return;
+  delete o.gestorExcluida;
   o.heri=cfg.heri;
   await fbSet('obras/'+obraId,o);
   saveCache(); renderGestor();

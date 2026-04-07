@@ -42,6 +42,10 @@ function populateAyudaObraSelect(selId){
 }
 
 function renderAyudaSocial(){
+  // Preservar scroll de .main antes de re-renderizar
+  const _main=document.querySelector('.main');
+  const _mainScroll=_main?_main.scrollTop:0;
+
   populateAyudaObraSelect('as-obra');
   gs('as-fecha').value=gs('as-fecha').value||today();
 
@@ -210,6 +214,9 @@ function renderAyudaSocial(){
     </tr>`;
   }).join('');
   const tf=gs('as-tf'); if(tf) tf.textContent=fGs(entregado);
+
+  // Restaurar scroll de .main tras el re-render
+  requestAnimationFrame(()=>{ if(_main) _main.scrollTop=_mainScroll; });
 }
 
 window.clrAyudaForm=function(){

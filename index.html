@@ -4,8 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>THALAMUS FINANZAS</title>
-<link rel="stylesheet" href="styles.css">
-
+<link rel="stylesheet" href="oscuro.css" id="themeCSS">
+<style>
+/* Wide scrollbar for easier touch/click */
+::-webkit-scrollbar { width: 28px; height: 28px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(201,168,76,.35); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; min-height: 20px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,.55); border: 2px solid transparent; background-clip: padding-box; }
+* { scrollbar-width: auto; scrollbar-color: rgba(201,168,76,.35) rgba(255,255,255,.05); }
+.tbl-wrap::-webkit-scrollbar, .gestor-detail-grid::-webkit-scrollbar, .gestor-card-list::-webkit-scrollbar { width: 28px; height: 28px; }
+select, .obra-sel { scrollbar-width: auto; }
+</style>
 </head>
 <body>
 
@@ -22,7 +31,7 @@
     <div class="login-error" id="login-err"></div>
   </div>
 </div>
-  
+
 <!-- OVERLAY MOBILE -->
 <div class="sidebar-overlay" id="sideOverlay" onclick="closeSidebar()"></div>
 
@@ -41,6 +50,10 @@
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
     <div class="user-logged"><div class="u-avatar" id="topAvatar">?</div><span id="topUser" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
     <div class="fb-badge"><div class="fb-dot" id="fbDot"></div><span id="fbTxt">Conectando...</span></div>
+    <select id="themeSelect" class="paste-sel" style="font-size:.6rem;padding:2px 6px;max-width:110px;flex-shrink:0" onchange="switchTheme(this.value)" title="Cambiar tema visual">
+      <option value="oscuro.css">🌑 Oscuro</option>
+      <option value="tecnico.css">⚡ Tecnológico</option>
+    </select>
     <button class="btn btn-ghost btn-sm socio-only" onclick="navTo('config')">⚙️</button>
     <button class="btn-logout" onclick="doLogout()">Salir</button>
   </div>
