@@ -148,11 +148,11 @@ function renderGestor(){
           <div class="gestor-obra-card-title" style="flex:1;min-width:0">
             <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
             <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
-            <button class="btn btn-ghost btn-xs" style="padding:2px 7px;font-size:.58rem;flex-shrink:0" onclick="event.stopPropagation();editObra('${o.id}')" title="Editar obra">✏️</button>
-            <button class="btn btn-xs" style="padding:2px 7px;font-size:.58rem;flex-shrink:0;background:rgba(224,82,82,.12);color:var(--acc3);border:1px solid rgba(224,82,82,.2)" onclick="event.stopPropagation();excluirObraGestor('${o.id}')" title="Excluir del total (conserva datos)">⊘ Excluir</button>
-            <button class="btn btn-danger btn-xs" style="padding:2px 7px;font-size:.58rem;flex-shrink:0" onclick="event.stopPropagation();limpiarGestorObra('${o.id}')" title="Limpiar datos del gestor para esta obra">🧹</button>
+         </div>
+        <div style="display:flex;gap:.35rem;margin-top:.35rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-xs" style="padding:2px 7px;font-size:.58rem" onclick="event.stopPropagation();editObra('${o.id}')" title="Editar obra">✏️ Editar</button>
+            <button class="btn btn-xs" style="padding:2px 7px;font-size:.58rem;background:rgba(224,82,82,.12);color:var(--acc3);border:1px solid rgba(224,82,82,.2)" onclick="event.stopPropagation();excluirObraGestor('${o.id}')" title="Excluir del total (conserva datos)">⊘ Excluir</button>
+            <button class="btn btn-danger btn-xs" style="padding:2px 7px;font-size:.58rem" onclick="event.stopPropagation();limpiarGestorObra('${o.id}')" title="Limpiar datos del gestor para esta obra">🧹 Limpiar</button>
           </div>
         </div>
         <div class="gestor-obra-card-body">
