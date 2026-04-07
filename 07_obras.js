@@ -55,7 +55,6 @@ window.switchObra=function(id){
   if(!id)return;
   cur=id; gs('obraSelect').value=id; renderObrasGrid();
   toast('Obra: '+(obras[id]?.nombre||id),'info');
-  // Refrescar página activa
   const active=document.querySelector('.page.active');
   if(active){
     const name=active.id.replace('page-','');
@@ -81,7 +80,6 @@ window.openNuevaObra=function(){
   gs('o-num').value=nums.length?Math.max(...nums)+1:1;
   gs('o-nom').value=''; gs('o-fi').value=today();
   gs('o-mc').value=''; gs('o-ad').value='0'; gs('o-es').value='EN EJECUCIÓN';
-  gs('o-ay').value=cfg.ayuda; gs('o-he').value=cfg.heri;
   openM('mObra');
 };
 window.editObra=function(id){
@@ -99,27 +97,27 @@ function _openEditObra(id){
   gs('o-num').value=o.num||''; gs('o-nom').value=o.nombre||'';
   gs('o-fi').value=o.fecha||''; gs('o-mc').value=o.contrato||0;
   gs('o-ad').value=o.adenda||0; gs('o-es').value=o.estado||'EN EJECUCIÓN';
-  gs('o-ay').value=o.ayuda!=null?o.ayuda:cfg.ayuda;
-  gs('o-he').value=o.heri!=null?o.heri:cfg.heri;
   openM('mObra');
 };
 window.saveObra=async function(){
   const nom=v('o-nom'); if(!nom){toast('Ingresá el nombre','err');return}
   const eid=v('o-eid'); const id=eid||uid();
+  // Preservar ayuda/heri existentes si los tenía (compatibilidad con datos viejos)
+  const prev=obras[id]||{};
   const o={id,nombre:nom,num:v('o-num'),fecha:v('o-fi'),
     contrato:parseFloat(gs('o-mc').value)||0,
     adenda:parseFloat(gs('o-ad').value)||0,
     estado:v('o-es'),
-    ayuda:parseFloat(gs('o-ay').value),
-    heri:parseFloat(gs('o-he').value),
     lastModified:Date.now()
   };
+  // Conservar % si ya existían (para no romper cálculos de obras anteriores)
+  if(prev.ayuda!=null) o.ayuda=prev.ayuda;
+  if(prev.heri!=null) o.heri=prev.heri;
   obras[id]=o;
   if(!gastos[id])gastos[id]=[];
   if(!certificados[id])certificados[id]=[];
   await fbSet('obras/'+id,o);
   closeM('mObra'); populateSel(); renderObrasGrid(); saveCache();
-  // Actualizar módulos si están activos
   if(gs('page-gestor')?.classList.contains('active')) renderGestor();
   if(gs('page-ayudaSocial')?.classList.contains('active')) renderAyudaSocial();
   if(gs('page-contratista')?.classList.contains('active')) renderContratista();
@@ -133,7 +131,6 @@ window.delObra=function(id){
     for(const c of(certificados[id]||[]))await fbDel('obras/'+id+'/certificados/'+c.id);
     await fbDel('obras/'+id);
     delete obras[id]; delete gastos[id]; delete certificados[id];
-    // Desasignar pagos del gestor y ayuda social que estaban en esta obra
     let gestorChanged=false, ayudaChanged=false, contratistaChanged=false;
     gestorPagos.forEach(p=>{if(p.obraId===id){p.obraId='';gestorChanged=true;}});
     if(gestorChanged) fbSet('gestor/pagos',{lista:gestorPagos});
@@ -142,7 +139,6 @@ window.delObra=function(id){
     contratistaPagos.forEach(p=>{if(p.obraId===id){p.obraId='';contratistaChanged=true;}});
     if(contratistaChanged) fbSet('contratista/pagos',{lista:contratistaPagos});
     if(cur===id)cur=null; populateSel(); renderObrasGrid(); saveCache();
-    // Actualizar módulos si están activos
     if(gs('page-gestor')?.classList.contains('active')) renderGestor();
     if(gs('page-ayudaSocial')?.classList.contains('active')) renderAyudaSocial();
     if(gs('page-contratista')?.classList.contains('active')) renderContratista();
@@ -215,7 +211,6 @@ function renderGlobal(){
   gs('gm-neto').textContent=fGs(totNe);
   gs('gm-gasto').textContent=fGs(totG);
   gs('gm-gan').textContent=fGs(totGan);
-  // totGan * cfg.socios/100 * 2 porque son dos socios
   gs('gm-soc').textContent=fGs(totGan*(cfg.socios/100));
   const pct=totCon>0?Math.min(100,totBr/totCon*100):0;
   gs('gp-fill').style.width=pct+'%'; gs('gp-pct').textContent=pct.toFixed(1)+'%';
@@ -223,4 +218,3 @@ function renderGlobal(){
   gs('gp-pend').textContent=fGs(totAcob);
   gs('gp-ej').textContent=enEj;
 }
-
