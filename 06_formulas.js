@@ -6,9 +6,11 @@ function obraHe(id){const o=obras[id];return o?.heri!=null?parseFloat(o.heri):cf
 // obraGes = alias de obraHe: HERI es el gestor
 function obraGes(id){return obraHe(id)}
 function calcCon(id){const o=obras[id]||{};return(parseFloat(o.contrato)||0)+(parseFloat(o.adenda)||0)}
+function calcNetoObra(id){return calcCertsT(id).ne}
 function costoG(g){return(parseFloat(g.monto)||0)+(parseFloat(g.saldoTotal)||0)+(parseFloat(g.saldoCheque)||0)}
-function calcAy(id){return calcCon(id)*(obraAy(id)/100)}
-function calcHe(id){return calcCon(id)*(obraHe(id)/100)}
+// calcAy y calcHe ahora se basan en el neto cobrado (certificados)
+function calcAy(id){return calcNetoObra(id)*(obraAy(id)/100)}
+function calcHe(id){return calcNetoObra(id)*(obraHe(id)/100)}
 function gestorPagosForObra(id){return gestorPagos.filter(p=>p.obraId===id)}
 function gestorTotalForObra(id){return gestorPagosForObra(id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0)}
 function ayudaSocialPagosForObra(id){return ayudaSocialPagos.filter(p=>p.obraId===id)}
@@ -37,4 +39,3 @@ function calcRes(id){
   return{con,tg,tk,br,ne,re,gan,corrCadaUno,pct,scob:con-br,spag:tk};
 }
 async function touchObra(){if(cur&&obras[cur]){obras[cur].lastModified=Date.now();await fbSet('obras/'+cur,obras[cur]);}saveCache();}
-
