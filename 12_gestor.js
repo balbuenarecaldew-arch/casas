@@ -99,12 +99,12 @@ function renderGestor(){
       if(!participa){
         const excluida=o.gestorExcluida===true;
         return`<div class="gestor-obra-card" style="opacity:.6;border-style:dashed">
-          <div class="gestor-obra-card-header">
-            <div class="gestor-obra-card-title" style="flex:1;min-width:0">
+          <div class="gestor-obra-card-header" style="flex-direction:column;align-items:flex-start;gap:.3rem">
+            <div class="gestor-obra-card-title" style="width:100%">
               <span class="gestor-obra-card-num" style="flex-shrink:0;font-size:1rem;font-weight:800;letter-spacing:.02em">${o.num?'Nº'+o.num:''}</span>
               <span style="white-space:normal;word-break:break-word">${o.nombre||'Sin nombre'}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.4rem">
+            <div style="display:flex;gap:.35rem;align-items:center">
               <span style="font-size:.6rem;color:var(--muted);font-style:italic">${excluida?'Excluida':'No incluida'}</span>
               <button class="btn btn-xs" style="background:rgba(232,160,68,.15);color:var(--amber);border:1px solid rgba(232,160,68,.2);padding:3px 10px;font-size:.62rem;font-weight:600"
                 onclick="event.stopPropagation();activarObraGestor('${o.id}')">+ Incluir</button>
